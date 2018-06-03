@@ -1,0 +1,10 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+<file>images/app_icon.png</file>
+<file>images/app_icon_32x32.png</file>
+<file>images/app_icon_32x32_norm.png</file>
+<file>images/app_icon_32x32_rev.png</file>
+<file>images/exit.png</file>
+</qresource>
+</RCC>
+
