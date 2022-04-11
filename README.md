@@ -11,4 +11,4 @@ In fact it is worse than that because there are no wild cards in the standard AP
 
 It also plays with the manifest to force the program to run as administrator.
 
-This ia a moderately dangerous piece of code. It was fun to write and illustrates how to do edit the Windows registry and get a Qt program to run as administrator. It seems to work OK but one mistake and a program like this could completely trash your registry! I've uploaded a binary but it would be much safer to compile up your own copy after you've checked my code to see that it does what you expect.
+This is a moderately dangerous piece of code. It was fun to write and illustrates how to edit the Windows registry and get a Qt program to run as administrator. It seems to work OK but one mistake and a program like this could completely trash your registry! I've uploaded a binary but it would be much safer to compile up your own copy after you've checked my code to see that it does what you expect.
