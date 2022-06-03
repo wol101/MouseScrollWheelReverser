@@ -48,17 +48,13 @@ FORMS += \
 
 DISTFILES += \
     app.rc \
-    manifest.xml \
-    images/app_icon.ai \
-    images/norm_icon.ai \
-    images/rev_icon.ai \
-    images/app_icon.png \
-    images/app_icon_32x32.png \
-    images/app_icon_32x32_norm.png \
-    images/app_icon_32x32_rev.png \
-    images/exit.png \
-    images/app_icon_32x32_norm.psd \
-    images/app_icon_32x32_rev.psd
+    manifest.xml
 
 RESOURCES += \
     app.qrc
+
+# windows libraries are hard to find
+# they are in C:\Windows\SysWOW64
+# and you can get their contents by
+# dumpbin.exe /exports C:\Windows\SysWOW64\*.dll
+LIBS += -lsetupapi -ladvapi32

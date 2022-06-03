@@ -4,6 +4,9 @@
 #include <QMainWindow>
 #include <Windows.h>
 
+#include <string>
+#include <map>
+
 namespace Ui {
 class MainWindow;
 }
@@ -22,15 +25,26 @@ protected:
 private slots:
     void normalWheel();
     void reverseWheel();
+    void about();
 
 private:
     Ui::MainWindow *ui;
 
     void getListOfKeys();
-    void setKeys(DWORD value);
+    void setAllKeys(DWORD value);
+    void setCheckedKeys(DWORD value);
+    void getConnectedUSB();
+    void parseVIDandPID(const QString &string, int *vid, int *pid);
+    void parseUSBIDs();
+    void displayConnectedUSB();
+    void displayListOfKeys();
 
     QStringList m_registryKeys;
     QList<DWORD> m_registryKeyValues;
+
+    QStringList m_connectedUSB;
+    std::map<int, std::string> m_vidMap;
+    std::map<int, std::map<int, std::string>> m_pidMapMap;
 };
 
 #endif // MAINWINDOW_H

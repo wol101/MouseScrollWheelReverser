@@ -6,23 +6,39 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>457</width>
-    <height>452</height>
+    <width>884</width>
+    <height>584</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QGridLayout" name="gridLayout_2">
+   <layout class="QGridLayout" name="gridLayout_3">
     <item row="0" column="0">
+     <widget class="QGroupBox" name="groupBox_2">
+      <property name="title">
+       <string>Connected Devices</string>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="0" column="0">
+        <widget class="QTableWidget" name="tableWidgetConnectedDeviced">
+         <property name="columnCount">
+          <number>0</number>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="1" column="0">
      <widget class="QGroupBox" name="groupBox">
       <property name="title">
-       <string>HID Keys</string>
+       <string>Scroll Entries</string>
       </property>
       <layout class="QGridLayout" name="gridLayout">
        <item row="0" column="0">
-        <widget class="QPlainTextEdit" name="plainTextEdit"/>
+        <widget class="QTableWidget" name="tableWidgetScrollEntries"/>
        </item>
       </layout>
      </widget>
@@ -34,17 +50,10 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>457</width>
-     <height>21</height>
+     <width>884</width>
+     <height>22</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuFile">
-    <property name="title">
-     <string>File</string>
-    </property>
-    <addaction name="actionQuit"/>
-   </widget>
-   <addaction name="menuFile"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
    <attribute name="toolBarArea">
@@ -75,7 +84,7 @@
   <action name="actionNormal">
    <property name="icon">
     <iconset resource="app.qrc">
-     <normaloff>:/images/app_icon_32x32_norm.png</normaloff>:/images/app_icon_32x32_norm.png</iconset>
+     <normaloff>:/images/norm_icon.svg</normaloff>:/images/norm_icon.svg</iconset>
    </property>
    <property name="text">
     <string>Normal</string>
@@ -87,7 +96,7 @@
   <action name="actionReverse">
    <property name="icon">
     <iconset resource="app.qrc">
-     <normaloff>:/images/app_icon_32x32_rev.png</normaloff>:/images/app_icon_32x32_rev.png</iconset>
+     <normaloff>:/images/rev_icon.svg</normaloff>:/images/rev_icon.svg</iconset>
    </property>
    <property name="text">
     <string>Reverse</string>

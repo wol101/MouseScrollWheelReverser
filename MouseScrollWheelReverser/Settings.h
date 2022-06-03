@@ -24,7 +24,7 @@ public:
     static QString fileName();
 
 private:
-    static QSettings *m_settings;
+    static QSettings m_settings;
 };
 
 #endif // SETTINGS_H
