@@ -10,6 +10,10 @@
 #include <QMessageBox>
 #include <QAction>
 #include <QMenu>
+#include <QProcess>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 #include <iostream>
 
@@ -48,8 +52,15 @@ MainWindow::MainWindow(QWidget *parent) :
     helpMenu->addAction(aboutAct);
 
     parseUSBIDs();
-    getConnectedUSB();
-    displayConnectedUSB();
+    if (getConnectedPNP() == 0)
+    {
+        displayConnectedPNP("USB");
+    }
+    else // fall back to the C version (which misses things)
+    {
+        getConnectedUSB();
+        displayConnectedUSB();
+    }
 
     getListOfKeys();
     displayListOfKeys();
@@ -172,7 +183,16 @@ void MainWindow::reverseWheel()
 
 void MainWindow::getConnectedUSB()
 {
-    GUID ClassGuid = {0xA5DCBF10L, 0x6530, 0x11D2, {0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED}}; // This is the GUID for the USB device class (A5DCBF10-6530-11D2-901F-00C04FB951ED)
+    GUID GUID_DEVINTERFACE_USB_DEVICE = { 0xA5DCBF10L, 0x6530, 0x11D2, {0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED} };
+    GUID GUID_DEVINTERFACE_USB_HUB = { 0xf18a0e88, 0xc30c, 0x11d0, {0x88, 0x15, 0x00, 0xa0, 0xc9, 0x06, 0xbe, 0xd8} };
+    GUID GUID_DEVINTERFACE_USB_HOST_CONTROLLER = { 0x3abf6f2d, 0x71c4, 0x462a, {0x8a, 0x92, 0x1e, 0x68, 0x61, 0xe6, 0xaf, 0x27} };
+    getConnectedUSB(&GUID_DEVINTERFACE_USB_DEVICE);
+    getConnectedUSB(&GUID_DEVINTERFACE_USB_HUB);
+    getConnectedUSB(&GUID_DEVINTERFACE_USB_HOST_CONTROLLER);
+}
+
+void MainWindow::getConnectedUSB(GUID *ClassGuid)
+{
     HDEVINFO                         hDevInfo;
     SP_DEVICE_INTERFACE_DATA         DevIntfData;
     PSP_DEVICE_INTERFACE_DETAIL_DATA DevIntfDetailData;
@@ -183,7 +203,7 @@ void MainWindow::getConnectedUSB()
 
     // We will try to get device information set for all USB devices that have a
     // device interface and are currently present on the system (plugged in).
-    hDevInfo = SetupDiGetClassDevs(&ClassGuid, NULL, 0, DIGCF_DEVICEINTERFACE | DIGCF_PRESENT);
+    hDevInfo = SetupDiGetClassDevs(ClassGuid, NULL, 0, DIGCF_DEVICEINTERFACE | DIGCF_PRESENT);
 
     if (hDevInfo != INVALID_HANDLE_VALUE)
     {
@@ -196,7 +216,7 @@ void MainWindow::getConnectedUSB()
         // call the dwMemberIdx value needs to be incremented to retrieve the next
         // device interface information.
 
-        SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &ClassGuid, dwMemberIdx, &DevIntfData);
+        SetupDiEnumDeviceInterfaces(hDevInfo, NULL, ClassGuid, dwMemberIdx, &DevIntfData);
 
         while(GetLastError() != ERROR_NO_MORE_ITEMS)
         {
@@ -224,13 +244,16 @@ void MainWindow::getConnectedUSB()
                 // by inspecting the DevIntfDetailData->DevicePath variable.
                 // The DevicePath looks something like this:
                 // "\\\\?\\usb#vid_0b05&pid_1939#9876543210#{a5dcbf10-6530-11d2-901f-00c04fb951ed}"
-                m_connectedUSB.push_back(QString::fromWCharArray(DevIntfDetailData->DevicePath));
+                QString devicePath = QString::fromWCharArray(DevIntfDetailData->DevicePath);
+                qDebug() << devicePath;
+                if (devicePath.startsWith("\\\\?\\usb#vid"))
+                        m_connectedUSB.push_back(devicePath);
             }
 
             HeapFree(GetProcessHeap(), 0, DevIntfDetailData);
 
             // Continue looping
-            SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &ClassGuid, ++dwMemberIdx, &DevIntfData);
+            SetupDiEnumDeviceInterfaces(hDevInfo, NULL, ClassGuid, ++dwMemberIdx, &DevIntfData);
         }
 
         SetupDiDestroyDeviceInfoList(hDevInfo);
@@ -335,6 +358,85 @@ void MainWindow::displayConnectedUSB()
     ui->tableWidgetConnectedDeviced->horizontalHeader()->setStretchLastSection(true);
 }
 
+void MainWindow::displayConnectedPNP(const QString &filter)
+{
+    // start but doing the filter
+    int vid, pid;
+    QVector<int> indexList;
+    for (int i = 0; i < m_connectedPNPInstanceId.size(); i++)
+    {
+        if (filter.size() == 0 || m_connectedPNPInstanceId[i].startsWith(filter, Qt::CaseInsensitive))
+        {
+            parseVIDandPID(m_connectedPNPInstanceId[i], &vid, &pid);
+            if (vid != -1) indexList.push_back(i);
+        }
+    }
+    ui->tableWidgetConnectedDeviced->setColumnCount(5);
+    QStringList labels;
+    labels << "VID" << "Vendor" << "PID" << "Part" << "FriendlyName";
+    ui->tableWidgetConnectedDeviced->setHorizontalHeaderLabels(labels);
+    ui->tableWidgetConnectedDeviced->setRowCount(indexList.size());
+    QTableWidgetItem *cell;
+    for (int i = 0; i < indexList.size(); i++)
+    {
+        qDebug() << m_connectedPNPInstanceId[indexList[i]];
+        parseVIDandPID(m_connectedPNPInstanceId[indexList[i]], &vid, &pid);
+        auto vidIt = m_vidMap.find(vid);
+        auto pidMapIt = m_pidMapMap.find(vid);
+        if (vidIt != m_vidMap.end())
+        {
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText(QString("%1").arg(vid, 4, 16, QChar('0')));
+            ui->tableWidgetConnectedDeviced->setItem(i, 0, cell);
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText(QString::fromStdString(vidIt->second));
+            ui->tableWidgetConnectedDeviced->setItem(i, 1, cell);
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText(QString("%1").arg(pid, 4, 16, QChar('0')));
+            ui->tableWidgetConnectedDeviced->setItem(i, 2, cell);
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            auto pidIt = pidMapIt->second.find(pid);
+            if (pidIt != pidMapIt->second.end()) { cell->setText(QString::fromStdString(pidIt->second)); }
+            else { cell->setText(""); }
+            ui->tableWidgetConnectedDeviced->setItem(i, 3, cell);
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText(m_connectedPNPFriendlyName[indexList[i]]);
+            ui->tableWidgetConnectedDeviced->setItem(i, 4, cell);
+        }
+        else
+        {
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText(QString("%1").arg(vid, 4, 16, QChar('0')));
+            ui->tableWidgetConnectedDeviced->setItem(i, 0, cell);
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText(m_connectedPNPManufacturer[indexList[i]]);
+            ui->tableWidgetConnectedDeviced->setItem(i, 1, cell);
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText(QString("%1").arg(pid, 4, 16, QChar('0')));
+            ui->tableWidgetConnectedDeviced->setItem(i, 2, cell);
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText("");
+            ui->tableWidgetConnectedDeviced->setItem(i, 3, cell);
+            cell = new QTableWidgetItem();
+            cell->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            cell->setText(m_connectedPNPFriendlyName[indexList[i]]);
+            ui->tableWidgetConnectedDeviced->setItem(i, 4, cell);
+        }
+    }
+    ui->tableWidgetConnectedDeviced->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    ui->tableWidgetConnectedDeviced->horizontalHeader()->setStretchLastSection(true);
+}
+
+
 void MainWindow::displayListOfKeys()
 {
     QIcon normal(":/images/norm_icon.svg");
@@ -409,4 +511,36 @@ void MainWindow::about()
         break;
     }
 }
+
+int MainWindow::getConnectedPNP()
+{
+    QProcess process;
+    QString program = "PowerShell";
+    QStringList arguments;
+    // PowerShell -Command "& {Get-PnpDevice | Select-Object Status,Class,FriendlyName,InstanceId,Manufacturer,Present | ConvertTo-Json}"
+    arguments << "-Command" << "& {Get-PnpDevice | Select-Object Status,Class,FriendlyName,InstanceId,Manufacturer,Present | ConvertTo-Json}";
+    process.start(program, arguments);
+    if (!process.waitForStarted()) return __LINE__;
+    if (!process.waitForFinished()) return __LINE__;
+    QByteArray result = process.readAll();
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(result);
+    if (jsonDoc.isNull()) return __LINE__;
+    if (!jsonDoc.isArray()) return __LINE__;
+    QJsonArray jsonArray = jsonDoc.array();
+    for (auto &&it : jsonArray)
+    {
+        if (!it.isObject()) continue;
+        QJsonObject obj = it.toObject();
+        if (obj["Status"].toString() != "OK") continue;
+        if (obj["Present"].toBool() != true) continue;
+        m_connectedPNPClass.push_back(obj["Class"].toString());
+        m_connectedPNPFriendlyName.push_back(obj["FriendlyName"].toString());
+        m_connectedPNPInstanceId.push_back(obj["InstanceId"].toString());
+        m_connectedPNPManufacturer.push_back(obj["Manufacturer"].toString());
+    }
+    if (m_connectedPNPClass.size() == 0) return __LINE__;
+    return 0;
+}
+
+
 
